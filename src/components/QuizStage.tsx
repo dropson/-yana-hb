@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import type { BlitzSlide } from '../data/questData'
@@ -24,14 +24,34 @@ export function QuizStage({
   onIndexChange,
   onComplete,
 }: QuizStageProps) {
+  const [showReliefModal, setShowReliefModal] = useState(false)
+  const [showJokeIntro, setShowJokeIntro] = useState(false)
   const [jokeModal, setJokeModal] = useState<JokeModalState | null>(null)
   const [showAuthSuccessModal, setShowAuthSuccessModal] = useState(false)
+
   const currentSlide = slides[currentIndex]
+
+  // Automatically fade out the "Я жартую" pop-up after 1.4s
+  useEffect(() => {
+    if (showJokeIntro) {
+      const timer = setTimeout(() => {
+        setShowJokeIntro(false)
+      }, 1400)
+      return () => clearTimeout(timer)
+    }
+  }, [showJokeIntro])
 
   const handleSelectOption = (optIndex: number) => {
     audio.startMusic()
 
-    // Slide 4: Fiancé question with interactive joke logic
+    // 1. After Scorpio slide (index 2): show "Все, видихай!" relief modal
+    if (currentIndex === 2) {
+      audio.playPop()
+      setShowReliefModal(true)
+      return
+    }
+
+    // 2. Slide 4: Fiancé question with joke logic
     if (currentSlide.id === 4) {
       if (optIndex === 0) {
         // Correct option: "Мій майбутній чоловік"
@@ -65,7 +85,7 @@ export function QuizStage({
       return
     }
 
-    // Slides 1, 2, 3: Standard smooth progression
+    // Standard progression for other slides
     audio.playPop()
     if (currentIndex < slides.length - 1) {
       onIndexChange(currentIndex + 1)
@@ -73,6 +93,18 @@ export function QuizStage({
       audio.playSuccess()
       setShowAuthSuccessModal(true)
     }
+  }
+
+  // Dismiss Relief Modal and launch Slide 4 with dramatic "Я жартую" flash
+  const handleDismissReliefModal = () => {
+    audio.playPop()
+    setShowReliefModal(false)
+    setShowJokeIntro(true)
+    onIndexChange(3) // Advance to Slide 4 (fiancé)
+  }
+
+  const handleDismissJokeIntro = () => {
+    setShowJokeIntro(false)
   }
 
   const handleCloseJoke = () => {
@@ -96,7 +128,7 @@ export function QuizStage({
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="w-full max-w-2xl lg:max-w-3xl mx-auto text-center flex flex-col items-center justify-center my-auto py-4 sm:py-6 lg:py-10 px-4"
           >
             <h1 className="font-display text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-[#18181B] leading-tight tracking-tight mb-3 lg:mb-4">
@@ -122,7 +154,7 @@ export function QuizStage({
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
             className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-center flex-1 my-auto py-1 lg:py-3"
           >
             {/* Left Column: Question headline & Pill Choices */}
@@ -201,7 +233,84 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* Joke Pop-up Modal when picking option 2 or 3 on fiancé question */}
+      {/* 1. Relief Modal after Scorpio slide ("Все, видихай! Ніяких більше нудних запитань...") */}
+      <AnimatePresence>
+        {showReliefModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-md bg-[#FAF8F5] border border-black/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center relative"
+            >
+              <div className="mb-2 lg:mb-3">
+                <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
+                  ПОВІДОМЛЕННЯ ВІД СИСТЕМИ
+                </span>
+              </div>
+
+              <h2 className="font-display text-2xl sm:text-3xl font-normal text-[#18181B] leading-tight mb-1.5">
+                Все, видихай!
+              </h2>
+
+              <p className="font-serif italic text-sm sm:text-base text-[#8C7A6B] mb-3">
+                Ніяких більше нудних запитань...
+              </p>
+
+              <p className="font-serif text-xs sm:text-sm text-[#6B6A75] font-light leading-relaxed max-w-xs mb-5 sm:mb-6">
+                Ідентифікацію пройдено успішно. Детектор вимкнено, можна видихнути і ні про що не хвилюватися.
+              </p>
+
+              <button
+                onClick={handleDismissReliefModal}
+                className="btn-gallery-pill-primary inline-flex items-center gap-3 px-7 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
+              >
+                <span>Нарешті!</span>
+                <span className="text-base font-light">→</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 2. Dramatic Center Flash Pop-up: "Я жартую, останнє уточнення..." (Clickable or auto-fades after 1.4s) */}
+      <AnimatePresence>
+        {showJokeIntro && (
+          <motion.div
+            key="joke-intro-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.25 }}
+            onClick={handleDismissJokeIntro}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 cursor-pointer select-none"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.85, opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="text-center bg-[#FAF8F5] px-8 py-6 sm:px-10 sm:py-7 rounded-2xl border border-black/10 shadow-2xl max-w-sm w-full"
+            >
+              <span className="text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92] block mb-2">
+                УВАГА 👀
+              </span>
+              <h2 className="font-display italic text-2xl sm:text-3xl text-[#18181B] tracking-tight leading-snug">
+                Я жартую, останнє уточнення...
+              </h2>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. Joke Pop-up Modal when picking option 2 or 3 on fiancé question */}
       <AnimatePresence>
         {jokeModal && (
           <motion.div
@@ -248,7 +357,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* Authorization Success Modal */}
+      {/* 4. Authorization Success Modal */}
       <AnimatePresence>
         {showAuthSuccessModal && (
           <motion.div
