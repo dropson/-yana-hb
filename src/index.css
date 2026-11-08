@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Cormorant Garamond", Georgia, serif;
+  --font-serif: "Playfair Display", Georgia, serif;
+  --font-handwriting: "Caveat", cursive;
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  
+  --color-canvas: #FAF8F5;
+  --color-canvas-card: #FFFFFF;
+  --color-ink: #18181B;
+  --color-ink-muted: #6B6A75;
+  --color-accent-tan: #B38E73;
+  --color-accent-border: #D8CCC0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: var(--font-sans);
+  background-color: #FAF8F5;
+  color: #18181B;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle gallery background */
+.bg-gallery {
+  background-color: #FAF8F5;
+  background-image: radial-gradient(rgba(24, 24, 27, 0.025) 1px, transparent 0);
+  background-size: 28px 28px;
+}
+
+/* Elegant thin pill button like in the reference image */
+.btn-gallery-pill {
+  border-radius: 9999px;
+  border: 1px solid rgba(24, 24, 27, 0.7);
+  background: transparent;
+  color: #18181B;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gallery-pill:hover {
+  background: #18181B;
+  color: #FFFFFF;
+  border-color: #18181B;
+  transform: translateY(-1px);
+}
+
+.btn-gallery-pill-primary {
+  border-radius: 9999px;
+  background: #18181B;
+  color: #FFFFFF;
+  border: 1px solid #18181B;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-gallery-pill-primary:hover {
+  background: #2D2D34;
+  border-color: #2D2D34;
+  transform: translateY(-1px);
+}
+
+/* Gallery Art frame with offset accent line */
+.gallery-frame-container {
+  position: relative;
+}
+
+.gallery-frame-offset {
+  position: absolute;
+  inset: 0;
+  transform: translate(10px, 10px);
+  border: 1px solid rgba(179, 142, 115, 0.4);
+  pointer-events: none;
+  z-index: 0;
+  transition: transform 0.4s ease;
+}
+
+.gallery-frame-container:hover .gallery-frame-offset {
+  transform: translate(14px, 14px);
+}
+
+/* Gentle shake animation for quiz */
+@keyframes shake-gentle {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px) rotate(-0.5deg); }
+  40%, 80% { transform: translateX(6px) rotate(0.5deg); }
+}
+
+.animate-shake {
+  animation: shake-gentle 0.4s ease-in-out;
+}
+
+.font-handwriting {
+  font-family: var(--font-handwriting), "Caveat", cursive;
+}
