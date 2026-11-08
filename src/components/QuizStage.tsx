@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { gsap } from 'gsap'
 import confetti from 'canvas-confetti'
 import type { BlitzSlide } from '../data/questData'
 import { audio } from '../utils/audio'
@@ -25,21 +26,107 @@ export function QuizStage({
   onComplete,
 }: QuizStageProps) {
   const [showReliefModal, setShowReliefModal] = useState(false)
-  const [showJokeIntro, setShowJokeIntro] = useState(false)
+  const [hasCompletedFianceIntro, setHasCompletedFianceIntro] = useState(false)
   const [jokeModal, setJokeModal] = useState<JokeModalState | null>(null)
   const [showAuthSuccessModal, setShowAuthSuccessModal] = useState(false)
 
+  // Refs for the cinematic center-to-slot animation on Slide 4
+  const slotRef = useRef<HTMLSpanElement>(null)
+  const centerOverlayRef = useRef<HTMLDivElement>(null)
+  const centerTextRef = useRef<HTMLDivElement>(null)
+  const slideContentRef = useRef<HTMLDivElement>(null)
+  const photoContainerRef = useRef<HTMLDivElement>(null)
+  const introTimelineRef = useRef<gsap.core.Timeline | null>(null)
+
   const currentSlide = slides[currentIndex]
 
-  // Automatically fade out the "Я жартую" pop-up after 1.4s
+  // Theatrical center-to-slot animation for Slide 4 (Fiancé question)
   useEffect(() => {
-    if (showJokeIntro) {
-      const timer = setTimeout(() => {
-        setShowJokeIntro(false)
-      }, 1400)
-      return () => clearTimeout(timer)
+    if (currentSlide.id === 4 && !hasCompletedFianceIntro) {
+      const overlay = centerOverlayRef.current
+      const centerText = centerTextRef.current
+      const slot = slotRef.current
+      const content = slideContentRef.current
+      const photo = photoContainerRef.current
+
+      if (!overlay || !centerText || !slot) return
+
+      // Initial state: hide permanent content and slot
+      gsap.set(slot, { opacity: 0 })
+      if (content) gsap.set(content, { opacity: 0, y: 16 })
+      if (photo) gsap.set(photo, { opacity: 0, scale: 0.94 })
+
+      // Play subtle chime
+      audio.playPop()
+
+      const ctx = gsap.context(() => {
+        const tl = gsap.timeline({
+          delay: 0.1,
+          onComplete: () => {
+            setHasCompletedFianceIntro(true)
+          },
+        })
+
+        introTimelineRef.current = tl
+
+        // 1. Center text enters smoothly on clean white canvas
+        tl.fromTo(
+          centerText,
+          { opacity: 0, scale: 0.8 },
+          { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(1.5)' }
+        )
+          // 2. Pause so user reads "Я жартую, останнє уточнення..."
+          .to({}, { duration: 1.15 })
+          // 3. Smoothly swoop and shrink directly into the permanent slot position
+          .call(() => {
+            const slotRect = slot.getBoundingClientRect()
+            const textRect = centerText.getBoundingClientRect()
+            const dx = slotRect.left - textRect.left
+            const dy = slotRect.top - textRect.top
+
+            gsap.to(centerText, {
+              x: dx,
+              y: dy,
+              scale: 0.28,
+              opacity: 0,
+              transformOrigin: 'top left',
+              duration: 0.75,
+              ease: 'power3.inOut',
+            })
+
+            gsap.to(overlay, {
+              opacity: 0,
+              duration: 0.65,
+              ease: 'power2.inOut',
+            })
+          })
+          // 4. Reveal permanent tag, question headline, photo, and buttons
+          .to(slot, { opacity: 1, duration: 0.3 }, '+=0.65')
+          .to(
+            content || [],
+            { opacity: 1, y: 0, duration: 0.55, ease: 'power2.out' },
+            '-=0.2'
+          )
+          .to(
+            photo || [],
+            { opacity: 1, scale: 1, duration: 0.55, ease: 'power2.out' },
+            '-=0.45'
+          )
+      })
+
+      return () => {
+        ctx.revert()
+      }
     }
-  }, [showJokeIntro])
+  }, [currentSlide.id, hasCompletedFianceIntro])
+
+  // Fast-forward intro animation on tap
+  const handleSkipIntro = () => {
+    if (introTimelineRef.current) {
+      introTimelineRef.current.progress(1)
+    }
+    setHasCompletedFianceIntro(true)
+  }
 
   const handleSelectOption = (optIndex: number) => {
     audio.startMusic()
@@ -51,7 +138,7 @@ export function QuizStage({
       return
     }
 
-    // 2. Slide 4: Fiancé question with joke logic
+    // 2. Slide 4: Fiancé question with interactive joke logic
     if (currentSlide.id === 4) {
       if (optIndex === 0) {
         // Correct option: "Мій майбутній чоловік"
@@ -95,16 +182,12 @@ export function QuizStage({
     }
   }
 
-  // Dismiss Relief Modal and launch Slide 4 with dramatic "Я жартую" flash
+  // Dismiss Relief Modal and launch Slide 4 with the theatrical center-to-slot animation
   const handleDismissReliefModal = () => {
     audio.playPop()
     setShowReliefModal(false)
-    setShowJokeIntro(true)
+    setHasCompletedFianceIntro(false) // Trigger theatrical intro on Slide 4
     onIndexChange(3) // Advance to Slide 4 (fiancé)
-  }
-
-  const handleDismissJokeIntro = () => {
-    setShowJokeIntro(false)
   }
 
   const handleCloseJoke = () => {
@@ -159,36 +242,42 @@ export function QuizStage({
           >
             {/* Left Column: Question headline & Pill Choices */}
             <div className="lg:col-span-6 flex flex-col justify-center text-left">
-              {/* Question Tag */}
-              <div className="mb-1.5 lg:mb-2">
-                <span className="inline-block text-[9px] sm:text-[10px] lg:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
+              {/* Question Tag Slot */}
+              <div className="mb-1.5 lg:mb-2 min-h-6 flex items-center">
+                <span
+                  ref={currentSlide.id === 4 ? slotRef : undefined}
+                  className="inline-block text-[9px] sm:text-[10px] lg:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]"
+                >
                   {currentSlide.tagText ? currentSlide.tagText : `ПИТАННЯ ${String(currentIndex).padStart(2, '0')}`}
                 </span>
               </div>
 
-              {/* Question Headline */}
-              <h2 className="font-display text-xl sm:text-2xl lg:text-4xl font-normal text-[#18181B] leading-snug lg:leading-tight tracking-tight mb-2 sm:mb-2.5 lg:mb-3">
-                {currentSlide.question}
-              </h2>
+              {/* Question Content container (animated into place for slide 4) */}
+              <div ref={currentSlide.id === 4 ? slideContentRef : undefined} className="w-full">
+                {/* Question Headline */}
+                <h2 className="font-display text-xl sm:text-2xl lg:text-4xl font-normal text-[#18181B] leading-snug lg:leading-tight tracking-tight mb-2 sm:mb-2.5 lg:mb-3">
+                  {currentSlide.question}
+                </h2>
 
-              {currentSlide.subtext && (
-                <p className="font-serif text-xs sm:text-sm lg:text-base text-[#6B6A75] font-light leading-relaxed mb-3.5 lg:mb-5 max-w-md">
-                  {currentSlide.subtext}
-                </p>
-              )}
+                {currentSlide.subtext && (
+                  <p className="font-serif text-xs sm:text-sm lg:text-base text-[#6B6A75] font-light leading-relaxed mb-3.5 lg:mb-5 max-w-md">
+                    {currentSlide.subtext}
+                  </p>
+                )}
 
-              {/* Thin Delicate Pill Buttons */}
-              <div className="flex flex-row flex-wrap gap-2 sm:gap-2.5 lg:gap-3 items-center pt-0.5 lg:pt-1">
-                {currentSlide.options.map((opt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleSelectOption(idx)}
-                    className="btn-gallery-pill inline-flex items-center justify-between gap-3 sm:gap-4 lg:gap-5 px-4 py-2 sm:px-6 sm:py-2.5 lg:px-7 lg:py-3.5 text-xs sm:text-sm lg:text-base font-normal tracking-wide cursor-pointer select-none active:scale-95 shrink-0"
-                  >
-                    <span>{opt.label}</span>
-                    <span className="text-base font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
-                  </button>
-                ))}
+                {/* Thin Delicate Pill Buttons */}
+                <div className="flex flex-row flex-wrap gap-2 sm:gap-2.5 lg:gap-3 items-center pt-0.5 lg:pt-1">
+                  {currentSlide.options.map((opt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleSelectOption(idx)}
+                      className="btn-gallery-pill inline-flex items-center justify-between gap-3 sm:gap-4 lg:gap-5 px-4 py-2 sm:px-6 sm:py-2.5 lg:px-7 lg:py-3.5 text-xs sm:text-sm lg:text-base font-normal tracking-wide cursor-pointer select-none active:scale-95 shrink-0"
+                    >
+                      <span>{opt.label}</span>
+                      <span className="text-base font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -196,6 +285,7 @@ export function QuizStage({
             <div className="lg:col-span-6 flex justify-center lg:justify-end items-center">
               {currentSlide.polaroidPhoto && (
                 <div
+                  ref={currentSlide.id === 4 ? photoContainerRef : undefined}
                   className={`gallery-frame-container relative w-full ${
                     currentSlide.aspectRatio === 'vertical'
                       ? 'max-w-[230px] sm:max-w-[260px] lg:max-w-[380px] xl:max-w-[410px]'
@@ -232,6 +322,24 @@ export function QuizStage({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Theatrical Center-to-Slot Intro on Slide 4 ("Я жартую, останнє уточнення...") */}
+      {currentSlide.id === 4 && !hasCompletedFianceIntro && (
+        <div
+          ref={centerOverlayRef}
+          onClick={handleSkipIntro}
+          className="fixed inset-0 z-40 bg-[#FAF8F5] flex flex-col items-center justify-center p-6 cursor-pointer select-none"
+        >
+          <div ref={centerTextRef} className="text-center will-change-transform max-w-lg">
+            <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92] block mb-2">
+              УВАГА 👀
+            </span>
+            <h2 className="font-display italic text-2xl sm:text-4xl lg:text-5xl text-[#18181B] tracking-tight leading-snug">
+              Я жартую, останнє уточнення...
+            </h2>
+          </div>
+        </div>
+      )}
 
       {/* 1. Relief Modal after Scorpio slide ("Все, видихай! Ніяких більше нудних запитань...") */}
       <AnimatePresence>
@@ -280,37 +388,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 2. Dramatic Center Flash Pop-up: "Я жартую, останнє уточнення..." (Clickable or auto-fades after 1.4s) */}
-      <AnimatePresence>
-        {showJokeIntro && (
-          <motion.div
-            key="joke-intro-overlay"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.25 }}
-            onClick={handleDismissJokeIntro}
-            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 cursor-pointer select-none"
-          >
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.85, opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center bg-[#FAF8F5] px-8 py-6 sm:px-10 sm:py-7 rounded-2xl border border-black/10 shadow-2xl max-w-sm w-full"
-            >
-              <span className="text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92] block mb-2">
-                УВАГА 👀
-              </span>
-              <h2 className="font-display italic text-2xl sm:text-3xl text-[#18181B] tracking-tight leading-snug">
-                Я жартую, останнє уточнення...
-              </h2>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. Joke Pop-up Modal when picking option 2 or 3 on fiancé question */}
+      {/* 2. Joke Pop-up Modal when picking option 2 or 3 on fiancé question */}
       <AnimatePresence>
         {jokeModal && (
           <motion.div
@@ -357,7 +435,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 4. Authorization Success Modal */}
+      {/* 3. Authorization Success Modal */}
       <AnimatePresence>
         {showAuthSuccessModal && (
           <motion.div
