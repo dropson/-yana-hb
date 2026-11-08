@@ -58,8 +58,8 @@ export default function App() {
       <AudioWidget />
 
       {/* Delicate ambient warmth */}
-      <div className="pointer-events-none fixed top-0 right-0 w-[500px] h-[500px] bg-gradient-to-b from-[#B38E73]/5 via-transparent to-transparent blur-[120px] rounded-full" />
-      <div className="pointer-events-none fixed bottom-0 left-0 w-[400px] h-[400px] bg-gradient-to-t from-[#B38E73]/5 via-transparent to-transparent blur-[120px] rounded-full" />
+      <div className="pointer-events-none fixed top-0 right-0 w-[450px] h-[450px] bg-[radial-gradient(circle,rgba(179,142,115,0.08)_0%,transparent_70%)] rounded-full" />
+      <div className="pointer-events-none fixed bottom-0 left-0 w-[380px] h-[380px] bg-[radial-gradient(circle,rgba(179,142,115,0.06)_0%,transparent_70%)] rounded-full" />
 
       {/* Top spacer to ensure smooth clearance for top hanging notch */}
       <div className="pt-10 sm:pt-12 lg:pt-14" />

@@ -18,6 +18,11 @@
   box-sizing: border-box;
 }
 
+button, a, input, select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 html, body {
   margin: 0;
   padding: 0;
