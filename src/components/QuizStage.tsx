@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { gsap } from 'gsap'
 import confetti from 'canvas-confetti'
 import type { BlitzSlide } from '../data/questData'
 import { audio } from '../utils/audio'
@@ -12,7 +11,7 @@ interface QuizStageProps {
   onComplete: () => void
 }
 
-interface JokeModalState {
+interface JokeFeedbackModalState {
   tag: string
   title: string
   subtitle: string
@@ -25,108 +24,16 @@ export function QuizStage({
   onIndexChange,
   onComplete,
 }: QuizStageProps) {
+  // Modal 1: "Все, видихай!" after Scorpio
   const [showReliefModal, setShowReliefModal] = useState(false)
-  const [hasCompletedFianceIntro, setHasCompletedFianceIntro] = useState(false)
-  const [jokeModal, setJokeModal] = useState<JokeModalState | null>(null)
+  // Modal 2: "Я жартую!" with next button
+  const [showJokeModalIntro, setShowJokeModalIntro] = useState(false)
+  // Modal 3: Joke feedback when picking wrong options on fiancé question
+  const [jokeFeedbackModal, setJokeFeedbackModal] = useState<JokeFeedbackModalState | null>(null)
+  // Modal 4: Authorization success modal before memories
   const [showAuthSuccessModal, setShowAuthSuccessModal] = useState(false)
 
-  // Refs for the cinematic center-to-slot animation on Slide 4
-  const slotRef = useRef<HTMLSpanElement>(null)
-  const centerOverlayRef = useRef<HTMLDivElement>(null)
-  const centerTextRef = useRef<HTMLDivElement>(null)
-  const slideContentRef = useRef<HTMLDivElement>(null)
-  const photoContainerRef = useRef<HTMLDivElement>(null)
-  const introTimelineRef = useRef<gsap.core.Timeline | null>(null)
-
   const currentSlide = slides[currentIndex]
-
-  // Theatrical center-to-slot animation for Slide 4 (Fiancé question)
-  useEffect(() => {
-    if (currentSlide.id === 4 && !hasCompletedFianceIntro) {
-      const overlay = centerOverlayRef.current
-      const centerText = centerTextRef.current
-      const slot = slotRef.current
-      const content = slideContentRef.current
-      const photo = photoContainerRef.current
-
-      if (!overlay || !centerText || !slot) return
-
-      // Initial state: hide permanent content and slot
-      gsap.set(slot, { opacity: 0 })
-      if (content) gsap.set(content, { opacity: 0, y: 16 })
-      if (photo) gsap.set(photo, { opacity: 0, scale: 0.94 })
-
-      // Play subtle chime
-      audio.playPop()
-
-      const ctx = gsap.context(() => {
-        const tl = gsap.timeline({
-          delay: 0.1,
-          onComplete: () => {
-            setHasCompletedFianceIntro(true)
-          },
-        })
-
-        introTimelineRef.current = tl
-
-        // 1. Center text enters smoothly on clean white canvas
-        tl.fromTo(
-          centerText,
-          { opacity: 0, scale: 0.8 },
-          { opacity: 1, scale: 1, duration: 0.45, ease: 'back.out(1.5)' }
-        )
-          // 2. Pause so user reads "Я жартую, останнє уточнення..."
-          .to({}, { duration: 1.15 })
-          // 3. Smoothly swoop and shrink directly into the permanent slot position
-          .call(() => {
-            const slotRect = slot.getBoundingClientRect()
-            const textRect = centerText.getBoundingClientRect()
-            const dx = slotRect.left - textRect.left
-            const dy = slotRect.top - textRect.top
-
-            gsap.to(centerText, {
-              x: dx,
-              y: dy,
-              scale: 0.28,
-              opacity: 0,
-              transformOrigin: 'top left',
-              duration: 0.75,
-              ease: 'power3.inOut',
-            })
-
-            gsap.to(overlay, {
-              opacity: 0,
-              duration: 0.65,
-              ease: 'power2.inOut',
-            })
-          })
-          // 4. Reveal permanent tag, question headline, photo, and buttons
-          .to(slot, { opacity: 1, duration: 0.3 }, '+=0.65')
-          .to(
-            content || [],
-            { opacity: 1, y: 0, duration: 0.55, ease: 'power2.out' },
-            '-=0.2'
-          )
-          .to(
-            photo || [],
-            { opacity: 1, scale: 1, duration: 0.55, ease: 'power2.out' },
-            '-=0.45'
-          )
-      })
-
-      return () => {
-        ctx.revert()
-      }
-    }
-  }, [currentSlide.id, hasCompletedFianceIntro])
-
-  // Fast-forward intro animation on tap
-  const handleSkipIntro = () => {
-    if (introTimelineRef.current) {
-      introTimelineRef.current.progress(1)
-    }
-    setHasCompletedFianceIntro(true)
-  }
 
   const handleSelectOption = (optIndex: number) => {
     audio.startMusic()
@@ -138,7 +45,7 @@ export function QuizStage({
       return
     }
 
-    // 2. Slide 4: Fiancé question with interactive joke logic
+    // 2. Slide 4: Fiancé question with interactive joke options
     if (currentSlide.id === 4) {
       if (optIndex === 0) {
         // Correct option: "Мій майбутній чоловік"
@@ -153,7 +60,7 @@ export function QuizStage({
       } else if (optIndex === 1) {
         // Joke option: "Я його не знаю"
         audio.playWrong()
-        setJokeModal({
+        setJokeFeedbackModal({
           tag: 'ДЕТЕКТОР БРЕХНІ',
           title: 'Не знаєш?! Серйозно?',
           subtitle: 'Слідчий комітет свята не вірить',
@@ -162,7 +69,7 @@ export function QuizStage({
       } else if (optIndex === 2) {
         // Joke option: "Мій колега"
         audio.playWrong()
-        setJokeModal({
+        setJokeFeedbackModal({
           tag: 'КОРПОРАТИВНА ЕТИКА',
           title: 'Колега?! Дуже цікаво...',
           subtitle: "Цікаві у вас робочі обов'язки",
@@ -182,17 +89,23 @@ export function QuizStage({
     }
   }
 
-  // Dismiss Relief Modal and launch Slide 4 with the theatrical center-to-slot animation
-  const handleDismissReliefModal = () => {
+  // Step 1 -> Step 2: From "Все видихай" to "Я жартую" modal
+  const handleProceedToJokeModal = () => {
     audio.playPop()
     setShowReliefModal(false)
-    setHasCompletedFianceIntro(false) // Trigger theatrical intro on Slide 4
+    setShowJokeModalIntro(true)
+  }
+
+  // Step 2 -> Slide 4: From "Я жартую" modal to the fiancé question
+  const handleProceedToFianceQuestion = () => {
+    audio.playPop()
+    setShowJokeModalIntro(false)
     onIndexChange(3) // Advance to Slide 4 (fiancé)
   }
 
-  const handleCloseJoke = () => {
+  const handleCloseJokeFeedback = () => {
     audio.playPop()
-    setJokeModal(null)
+    setJokeFeedbackModal(null)
   }
 
   const handleDismissAuthModal = () => {
@@ -242,42 +155,36 @@ export function QuizStage({
           >
             {/* Left Column: Question headline & Pill Choices */}
             <div className="lg:col-span-6 flex flex-col justify-center text-left">
-              {/* Question Tag Slot */}
+              {/* Question Tag */}
               <div className="mb-1.5 lg:mb-2 min-h-6 flex items-center">
-                <span
-                  ref={currentSlide.id === 4 ? slotRef : undefined}
-                  className="inline-block text-[9px] sm:text-[10px] lg:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]"
-                >
+                <span className="inline-block text-[9px] sm:text-[10px] lg:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
                   {currentSlide.tagText ? currentSlide.tagText : `ПИТАННЯ ${String(currentIndex).padStart(2, '0')}`}
                 </span>
               </div>
 
-              {/* Question Content container (animated into place for slide 4) */}
-              <div ref={currentSlide.id === 4 ? slideContentRef : undefined} className="w-full">
-                {/* Question Headline */}
-                <h2 className="font-display text-xl sm:text-2xl lg:text-4xl font-normal text-[#18181B] leading-snug lg:leading-tight tracking-tight mb-2 sm:mb-2.5 lg:mb-3">
-                  {currentSlide.question}
-                </h2>
+              {/* Question Headline */}
+              <h2 className="font-display text-xl sm:text-2xl lg:text-4xl font-normal text-[#18181B] leading-snug lg:leading-tight tracking-tight mb-2 sm:mb-2.5 lg:mb-3">
+                {currentSlide.question}
+              </h2>
 
-                {currentSlide.subtext && (
-                  <p className="font-serif text-xs sm:text-sm lg:text-base text-[#6B6A75] font-light leading-relaxed mb-3.5 lg:mb-5 max-w-md">
-                    {currentSlide.subtext}
-                  </p>
-                )}
+              {currentSlide.subtext && (
+                <p className="font-serif text-xs sm:text-sm lg:text-base text-[#6B6A75] font-light leading-relaxed mb-3.5 lg:mb-5 max-w-md">
+                  {currentSlide.subtext}
+                </p>
+              )}
 
-                {/* Thin Delicate Pill Buttons */}
-                <div className="flex flex-row flex-wrap gap-2 sm:gap-2.5 lg:gap-3 items-center pt-0.5 lg:pt-1">
-                  {currentSlide.options.map((opt, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectOption(idx)}
-                      className="btn-gallery-pill inline-flex items-center justify-between gap-3 sm:gap-4 lg:gap-5 px-4 py-2 sm:px-6 sm:py-2.5 lg:px-7 lg:py-3.5 text-xs sm:text-sm lg:text-base font-normal tracking-wide cursor-pointer select-none active:scale-95 shrink-0"
-                    >
-                      <span>{opt.label}</span>
-                      <span className="text-base font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
-                    </button>
-                  ))}
-                </div>
+              {/* Thin Delicate Pill Buttons */}
+              <div className="flex flex-row flex-wrap gap-2 sm:gap-2.5 lg:gap-3 items-center pt-0.5 lg:pt-1">
+                {currentSlide.options.map((opt, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSelectOption(idx)}
+                    className="btn-gallery-pill inline-flex items-center justify-between gap-3 sm:gap-4 lg:gap-5 px-4 py-2 sm:px-6 sm:py-2.5 lg:px-7 lg:py-3.5 text-xs sm:text-sm lg:text-base font-normal tracking-wide cursor-pointer select-none active:scale-95 shrink-0"
+                  >
+                    <span>{opt.label}</span>
+                    <span className="text-base font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -285,7 +192,6 @@ export function QuizStage({
             <div className="lg:col-span-6 flex justify-center lg:justify-end items-center">
               {currentSlide.polaroidPhoto && (
                 <div
-                  ref={currentSlide.id === 4 ? photoContainerRef : undefined}
                   className={`gallery-frame-container relative w-full ${
                     currentSlide.aspectRatio === 'vertical'
                       ? 'max-w-[230px] sm:max-w-[260px] lg:max-w-[380px] xl:max-w-[410px]'
@@ -323,25 +229,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* Theatrical Center-to-Slot Intro on Slide 4 ("Я жартую, останнє уточнення...") */}
-      {currentSlide.id === 4 && !hasCompletedFianceIntro && (
-        <div
-          ref={centerOverlayRef}
-          onClick={handleSkipIntro}
-          className="fixed inset-0 z-40 bg-[#FAF8F5] flex flex-col items-center justify-center p-6 cursor-pointer select-none"
-        >
-          <div ref={centerTextRef} className="text-center will-change-transform max-w-lg">
-            <span className="text-[10px] sm:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92] block mb-2">
-              УВАГА 👀
-            </span>
-            <h2 className="font-display italic text-2xl sm:text-4xl lg:text-5xl text-[#18181B] tracking-tight leading-snug">
-              Я жартую, останнє уточнення...
-            </h2>
-          </div>
-        </div>
-      )}
-
-      {/* 1. Relief Modal after Scorpio slide ("Все, видихай! Ніяких більше нудних запитань...") */}
+      {/* 1. Modal 1: "Все, видихай!" after Scorpio slide */}
       <AnimatePresence>
         {showReliefModal && (
           <motion.div
@@ -377,7 +265,7 @@ export function QuizStage({
               </p>
 
               <button
-                onClick={handleDismissReliefModal}
+                onClick={handleProceedToJokeModal}
                 className="btn-gallery-pill-primary inline-flex items-center gap-3 px-7 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
               >
                 <span>Нарешті!</span>
@@ -388,9 +276,9 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 2. Joke Pop-up Modal when picking option 2 or 3 on fiancé question */}
+      {/* 2. Modal 2: "Я жартую!" with next button */}
       <AnimatePresence>
-        {jokeModal && (
+        {showJokeModalIntro && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -407,24 +295,71 @@ export function QuizStage({
             >
               <div className="mb-2 lg:mb-3">
                 <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
-                  {jokeModal.tag}
+                  УВАГА 👀
+                </span>
+              </div>
+
+              <h2 className="font-display italic text-2xl sm:text-3xl font-normal text-[#18181B] leading-tight mb-1.5">
+                Я жартую! 😈
+              </h2>
+
+              <p className="font-serif italic text-sm sm:text-base text-[#8C7A6B] mb-3">
+                Останнє важливе уточнення...
+              </p>
+
+              <p className="font-serif text-xs sm:text-sm text-[#6B6A75] font-light leading-relaxed max-w-xs mb-5 sm:mb-6">
+                Ти справді подумала, що все так просто закінчиться? Залишилося ще одне дуже важливе секретне питання!
+              </p>
+
+              <button
+                onClick={handleProceedToFianceQuestion}
+                className="btn-gallery-pill-primary inline-flex items-center gap-3 px-7 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
+              >
+                <span>Ну показуй, що там</span>
+                <span className="text-base font-light">→</span>
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 3. Joke Feedback Modal when picking option 2 or 3 on fiancé question */}
+      <AnimatePresence>
+        {jokeFeedbackModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          >
+            <motion.div
+              initial={{ scale: 0.94, opacity: 0, y: 10 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.94, opacity: 0, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-md bg-[#FAF8F5] border border-black/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center relative"
+            >
+              <div className="mb-2 lg:mb-3">
+                <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
+                  {jokeFeedbackModal.tag}
                 </span>
               </div>
 
               <h3 className="font-display text-2xl sm:text-3xl font-normal text-[#18181B] leading-tight mb-1.5">
-                {jokeModal.title}
+                {jokeFeedbackModal.title}
               </h3>
 
               <p className="font-serif italic text-sm sm:text-base text-[#8C7A6B] mb-3">
-                {jokeModal.subtitle}
+                {jokeFeedbackModal.subtitle}
               </p>
 
               <p className="font-serif text-xs sm:text-sm text-[#6B6A75] font-light leading-relaxed mb-5 sm:mb-6">
-                {jokeModal.body}
+                {jokeFeedbackModal.body}
               </p>
 
               <button
-                onClick={handleCloseJoke}
+                onClick={handleCloseJokeFeedback}
                 className="btn-gallery-pill-primary inline-flex items-center gap-3 px-6 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
               >
                 <span>Вибрати знову</span>
@@ -435,7 +370,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 3. Authorization Success Modal */}
+      {/* 4. Authorization Success Modal before memories */}
       <AnimatePresence>
         {showAuthSuccessModal && (
           <motion.div
