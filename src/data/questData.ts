@@ -205,8 +205,8 @@ export const questData: QuestConfig = {
     {
       id: 6,
       photo: getAssetUrl("images/9.jpg"),
-      title: "1 вересня",
-      caption: "1 вересня у малих в школі",
+      title: "Шкільне свято",
+      caption: "Важливий день для малих у школі",
       question: "Що це за подія була?",
       options: [
         "1 вересня у малих в школі",
