@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 import type { BlitzSlide } from '../data/questData'
@@ -26,14 +26,24 @@ export function QuizStage({
 }: QuizStageProps) {
   // Modal 1: "Все, видихай!" after Scorpio
   const [showReliefModal, setShowReliefModal] = useState(false)
-  // Modal 2: "Я жартую!" with next button
-  const [showJokeModalIntro, setShowJokeModalIntro] = useState(false)
-  // Modal 3: Joke feedback when picking wrong options on fiancé question
+  // Dedicated Interlude Slide: "Я жартую!" (not counted in slide progress)
+  const [showJokeInterludeSlide, setShowJokeInterludeSlide] = useState(false)
+  // Modal 2: Joke feedback when picking wrong options on fiancé question
   const [jokeFeedbackModal, setJokeFeedbackModal] = useState<JokeFeedbackModalState | null>(null)
-  // Modal 4: Authorization success modal before memories
+  // Modal 3: Authorization success modal before memories
   const [showAuthSuccessModal, setShowAuthSuccessModal] = useState(false)
 
   const currentSlide = slides[currentIndex]
+
+  // Reset internal states on restart
+  useEffect(() => {
+    if (currentIndex === 0) {
+      setShowReliefModal(false)
+      setShowJokeInterludeSlide(false)
+      setJokeFeedbackModal(null)
+      setShowAuthSuccessModal(false)
+    }
+  }, [currentIndex])
 
   const handleSelectOption = (optIndex: number) => {
     audio.startMusic()
@@ -45,10 +55,10 @@ export function QuizStage({
       return
     }
 
-    // 2. Slide 4: Fiancé question with interactive joke options
+    // 2. Slide 4: Question about the boyfriend
     if (currentSlide.id === 4) {
       if (optIndex === 0) {
-        // Correct option: "Мій майбутній чоловік"
+        // Correct option: "Мій хлопець"
         audio.playSuccess()
         confetti({
           particleCount: 45,
@@ -89,18 +99,18 @@ export function QuizStage({
     }
   }
 
-  // Step 1 -> Step 2: From "Все видихай" to "Я жартую" modal
-  const handleProceedToJokeModal = () => {
+  // Step 1 -> Step 2: From "Все видихай" to the "Я жартую" interlude slide
+  const handleProceedToJokeSlide = () => {
     audio.playPop()
     setShowReliefModal(false)
-    setShowJokeModalIntro(true)
+    setShowJokeInterludeSlide(true)
   }
 
-  // Step 2 -> Slide 4: From "Я жартую" modal to the fiancé question
+  // Step 2 -> Slide 4: From "Я жартую" slide to the final question with the boyfriend
   const handleProceedToFianceQuestion = () => {
     audio.playPop()
-    setShowJokeModalIntro(false)
-    onIndexChange(3) // Advance to Slide 4 (fiancé)
+    setShowJokeInterludeSlide(false)
+    onIndexChange(3) // Advance to Slide 4 (boyfriend question)
   }
 
   const handleCloseJokeFeedback = () => {
@@ -118,7 +128,7 @@ export function QuizStage({
     <div className="w-full max-w-5xl lg:max-w-6xl mx-auto px-4 sm:px-8 py-1 lg:py-4 flex flex-col justify-center flex-1 relative">
       <AnimatePresence mode="wait">
         {currentSlide.isHeroIntro ? (
-          /* First Section: Centered Editorial Hero */
+          /* Slide 1: Centered Editorial Hero */
           <motion.div
             key="hero-intro"
             initial={{ opacity: 0, y: 14 }}
@@ -143,8 +153,44 @@ export function QuizStage({
               <span className="text-base lg:text-lg font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
             </button>
           </motion.div>
+        ) : showJokeInterludeSlide ? (
+          /* Interlude Slide: 'Я жартую! 😈' (Full page slide, not a modal, not counted in quiz total) */
+          <motion.div
+            key="joke-interlude-slide"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -14 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full max-w-2xl lg:max-w-3xl mx-auto text-center flex flex-col items-center justify-center my-auto py-6 sm:py-8 lg:py-12 px-4"
+          >
+            <div className="mb-2 lg:mb-3">
+              <span className="inline-block text-[9px] sm:text-[10px] lg:text-[11px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
+                УВАГА 👀
+              </span>
+            </div>
+
+            <h1 className="font-display italic text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-normal text-[#18181B] leading-tight tracking-tight mb-2 sm:mb-3">
+              Я жартую! 😈
+            </h1>
+
+            <p className="font-serif italic text-sm sm:text-lg lg:text-xl text-[#8C7A6B] mb-3 sm:mb-4">
+              Останнє важливе уточнення...
+            </p>
+
+            <p className="font-serif text-xs sm:text-base lg:text-lg text-[#6B6A75] font-light max-w-md lg:max-w-xl mx-auto mb-6 sm:mb-8 leading-relaxed">
+              Ти справді подумала, що все так просто закінчиться? Залишилося ще одне дуже важливе секретне питання!
+            </p>
+
+            <button
+              onClick={handleProceedToFianceQuestion}
+              className="btn-gallery-pill-primary group inline-flex items-center gap-3.5 lg:gap-4 px-7 py-3 lg:px-9 lg:py-4 text-xs sm:text-sm lg:text-base font-normal tracking-wide cursor-pointer select-none active:scale-95 shadow-md hover:shadow-lg transition-all"
+            >
+              <span>Ну показуй, що там</span>
+              <span className="text-base lg:text-lg font-light transition-transform duration-300 group-hover:translate-x-1">→</span>
+            </button>
+          </motion.div>
         ) : (
-          /* All Content Slides (Slide 2: Identity, Slide 3: Scorpio, Slide 4: Fiancé) */
+          /* All Content Slides (Slide 2: Identity, Slide 3: Scorpio, Slide 4: Boyfriend) */
           <motion.div
             key={currentSlide.id}
             initial={{ opacity: 0, y: 14 }}
@@ -229,7 +275,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 1. Modal 1: "Все, видихай!" after Scorpio slide */}
+      {/* Modal 1: "Все, видихай!" after Scorpio slide */}
       <AnimatePresence>
         {showReliefModal && (
           <motion.div
@@ -265,7 +311,7 @@ export function QuizStage({
               </p>
 
               <button
-                onClick={handleProceedToJokeModal}
+                onClick={handleProceedToJokeSlide}
                 className="btn-gallery-pill-primary inline-flex items-center gap-3 px-7 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
               >
                 <span>Нарешті!</span>
@@ -276,54 +322,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 2. Modal 2: "Я жартую!" with next button */}
-      <AnimatePresence>
-        {showJokeModalIntro && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
-          >
-            <motion.div
-              initial={{ scale: 0.94, opacity: 0, y: 10 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.94, opacity: 0, y: 10 }}
-              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-              className="w-full max-w-md bg-[#FAF8F5] border border-black/10 rounded-2xl p-6 sm:p-8 shadow-2xl text-center flex flex-col items-center relative"
-            >
-              <div className="mb-2 lg:mb-3">
-                <span className="text-[9px] sm:text-[10px] font-semibold tracking-[0.25em] uppercase text-[#A39B92]">
-                  УВАГА 👀
-                </span>
-              </div>
-
-              <h2 className="font-display italic text-2xl sm:text-3xl font-normal text-[#18181B] leading-tight mb-1.5">
-                Я жартую! 😈
-              </h2>
-
-              <p className="font-serif italic text-sm sm:text-base text-[#8C7A6B] mb-3">
-                Останнє важливе уточнення...
-              </p>
-
-              <p className="font-serif text-xs sm:text-sm text-[#6B6A75] font-light leading-relaxed max-w-xs mb-5 sm:mb-6">
-                Ти справді подумала, що все так просто закінчиться? Залишилося ще одне дуже важливе секретне питання!
-              </p>
-
-              <button
-                onClick={handleProceedToFianceQuestion}
-                className="btn-gallery-pill-primary inline-flex items-center gap-3 px-7 py-2.5 sm:px-8 sm:py-3 text-xs sm:text-sm font-normal tracking-wide cursor-pointer active:scale-95 shadow-md"
-              >
-                <span>Ну показуй, що там</span>
-                <span className="text-base font-light">→</span>
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* 3. Joke Feedback Modal when picking option 2 or 3 on fiancé question */}
+      {/* Modal 2: Joke Feedback Modal when picking wrong options on boyfriend question */}
       <AnimatePresence>
         {jokeFeedbackModal && (
           <motion.div
@@ -370,7 +369,7 @@ export function QuizStage({
         )}
       </AnimatePresence>
 
-      {/* 4. Authorization Success Modal before memories */}
+      {/* Modal 3: Authorization Success Modal before memories */}
       <AnimatePresence>
         {showAuthSuccessModal && (
           <motion.div
